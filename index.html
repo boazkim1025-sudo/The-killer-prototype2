@@ -1,0 +1,136 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAFIA ONLINE</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="logo">MAFIA<span> ONLINE</span></div>
+    <div id="connectionStatus" class="status">연결 설정 필요</div>
+  </header>
+
+  <main>
+    <section id="homeScreen" class="screen">
+      <div class="hero">
+        <div class="eyebrow">ONLINE SOCIAL DEDUCTION GAME</div>
+        <h1>MAFIA<br><span>GAME</span></h1>
+        <p>친구들과 함께하는 온라인 마피아 게임</p>
+      </div>
+
+      <div class="panel home-panel">
+        <label for="playerName">닉네임</label>
+        <input id="playerName" maxlength="12" placeholder="닉네임을 입력하세요">
+
+        <button id="createRoomBtn" class="primary">방 만들기</button>
+
+        <div class="or">또는</div>
+
+        <label for="roomCodeInput">방 코드</label>
+        <input id="roomCodeInput" maxlength="6" placeholder="6자리 코드"
+               autocomplete="off">
+        <button id="joinRoomBtn" class="secondary">방 참가하기</button>
+      </div>
+    </section>
+
+    <section id="lobbyScreen" class="screen hidden">
+      <div class="panel">
+        <div class="lobby-heading">
+          <div>
+            <div class="eyebrow">WAITING ROOM</div>
+            <h2>게임 대기실</h2>
+          </div>
+          <span id="hostBadge" class="badge hidden">방장</span>
+        </div>
+
+        <div class="room-code-box">
+          <span>방 코드</span>
+          <strong id="roomCodeDisplay">------</strong>
+          <button id="copyCodeBtn" class="small-button">복사</button>
+        </div>
+
+        <div class="section-heading">
+          <h3>참가자</h3>
+          <span id="playerCount">0 / 20</span>
+        </div>
+        <div id="playerList" class="player-list"></div>
+
+        <div id="hostSettings" class="settings">
+          <h3>게임 설정</h3>
+          <label for="mafiaCount">마피아 수</label>
+          <select id="mafiaCount">
+            <option value="1">1명</option>
+            <option value="2" selected>2명</option>
+            <option value="3">3명</option>
+            <option value="4">4명</option>
+          </select>
+
+          <label for="discussionTime">토론 시간</label>
+          <select id="discussionTime">
+            <option value="2">2분</option>
+            <option value="3" selected>3분</option>
+            <option value="5">5분</option>
+            <option value="7">7분</option>
+          </select>
+        </div>
+
+        <div id="guestNotice" class="notice hidden">
+          방장이 게임을 시작할 때까지 기다려 주세요.
+        </div>
+
+        <button id="startGameBtn" class="primary">게임 시작</button>
+        <button id="leaveRoomBtn" class="danger">방 나가기</button>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="screen hidden">
+      <div class="panel">
+        <div class="game-top">
+          <span id="roundLabel">1일차</span>
+          <span id="phaseLabel" class="badge">밤</span>
+        </div>
+        <h2 id="gameTitle">게임 진행 중</h2>
+        <p id="gameMessage">자신의 직업을 확인하세요.</p>
+
+        <div class="role-card">
+          <span>나의 직업</span>
+          <h2 id="myRole">직업 확인 중</h2>
+          <p id="myRoleDescription"></p>
+        </div>
+
+        <div class="section-heading">
+          <h3>플레이어</h3>
+          <span id="aliveCount"></span>
+        </div>
+        <div id="gamePlayerList" class="player-list"></div>
+
+        <div id="actionArea"></div>
+
+        <div id="hostGameControls" class="hidden">
+          <button id="nextPhaseBtn" class="primary">다음 단계 진행</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="chatSection" class="panel hidden">
+      <div class="section-heading">
+        <h3 id="chatHeading">전체 채팅</h3>
+        <span id="chatMode">전체 공개</span>
+      </div>
+      <div id="chatMessages" class="chat-messages"></div>
+      <form id="chatForm" class="chat-form">
+        <input id="chatInput" maxlength="200" placeholder="메시지 입력">
+        <button class="primary" type="submit">전송</button>
+      </form>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="game.js"></script>
+</body>
+</html>
