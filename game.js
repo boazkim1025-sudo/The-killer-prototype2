@@ -2,183 +2,88 @@
 (() => {
   "use strict";
 
-  // Supabase 프로젝트 정보 입력
-  const SUPABASE_URL = "여기에_SUPABASE_URL";
-  const SUPABASE_ANON_KEY = "여기에_SUPABASE_ANON_KEY";
+  // =========================================
+  // SUPABASE 설정
+  // =========================================
 
-  const $ = id => document.getElementById(id);
+  const SUPABASE_URL =
+    "https://vkhfrxnwdvocgrvzpuhr.supabase.co";
+
+  const SUPABASE_ANON_KEY =
+    "sb_publishable_5bcixPexFdz1S2O1IoYsow_YjzwCq3o";
+
   const MAX_PLAYERS = 20;
 
-  const ROLES = {
-    citizen: {
-      name: "시민",
-      team: "citizen",
-      description: "마피아와 중립 세력을 찾아 제거하세요."
-    },
-    doctor: {
-      name: "의사",
-      team: "citizen",
-      description: "밤에 한 명을 보호할 수 있습니다."
-    },
-    reporter: {
-      name: "기자",
-      team: "citizen",
-      description: "게임 중 한 번 플레이어의 직업을 공개할 수 있습니다."
-    },
-    police: {
-      name: "경찰",
-      team: "citizen",
-      description: "밤에 한 명의 행동을 막을 수 있습니다."
-    },
-    detective: {
-      name: "탐정",
-      team: "citizen",
-      description: "밤에 한 명의 팀을 조사할 수 있습니다."
-    },
-    medium: {
-      name: "영매",
-      team: "citizen",
-      description: "탈락한 플레이어에 대한 정보를 얻습니다."
-    },
-    politician: {
-      name: "정치인",
-      team: "citizen",
-      description: "투표에서 특별한 영향력을 발휘합니다."
-    },
-    soldier: {
-      name: "군인",
-      team: "citizen",
-      description: "특별한 생존 능력을 가진 시민입니다."
-    },
-    watcher: {
-      name: "감시자",
-      team: "citizen",
-      description: "밤에 한 플레이어의 행동을 관찰합니다."
-    },
-    trapper: {
-      name: "함정꾼",
-      team: "citizen",
-      description: "자신을 공격한 적에게 대응합니다."
-    },
-    guardian: {
-      name: "수호자",
-      team: "citizen",
-      description: "다른 플레이어를 보호합니다."
-    },
-    psychologist: {
-      name: "심리학자",
-      team: "citizen",
-      description: "플레이어의 행동에 대한 정보를 얻습니다."
-    },
-    timeTraveler: {
-      name: "시간여행자",
-      team: "citizen",
-      description: "특별한 시간 능력을 가진 시민입니다."
-    },
-    boss: {
-      name: "마피아 보스",
-      team: "mafia",
-      description: "마피아 팀의 우두머리입니다."
-    },
-    spy: {
-      name: "스파이",
-      team: "mafia",
-      description: "마피아 팀의 정보를 수집합니다."
-    },
-    intimidator: {
-      name: "협박범",
-      team: "mafia",
-      description: "상대의 행동에 영향을 줍니다."
-    },
-    disguiser: {
-      name: "변장사",
-      team: "mafia",
-      description: "자신의 정체를 숨깁니다."
-    },
-    controller: {
-      name: "조종자",
-      team: "mafia",
-      description: "다른 플레이어의 행동에 영향을 줍니다."
-    },
-    doppelganger: {
-      name: "도플갱어",
-      team: "mafia",
-      description: "다른 사람의 정체를 흉내 냅니다."
-    },
-    necromancer: {
-      name: "강령술사",
-      team: "mafia",
-      description: "특별한 능력을 가진 마피아입니다."
-    },
-    ghostMafia: {
-      name: "유령 마피아",
-      team: "mafia",
-      description: "마피아 팀을 돕는 특별한 역할입니다."
-    },
-    clown: {
-      name: "광대",
-      team: "neutral",
-      description: "투표로 탈락하면 승리합니다."
-    },
-    immortal: {
-      name: "불사자",
-      team: "neutral",
-      description: "특별한 생존 조건을 가지고 있습니다."
-    },
-    mirror: {
-      name: "거울",
-      team: "neutral",
-      description: "다른 플레이어의 능력에 영향을 받습니다."
-    },
-    trickster: {
-      name: "사기꾼",
-      team: "neutral",
-      description: "혼란을 일으키는 특별한 역할입니다."
-    },
-    psycho: {
-      name: "사이코",
-      team: "neutral",
-      description: "독립적인 승리 조건을 가진 역할입니다."
-    }
-  };
+  const $ = id => document.getElementById(id);
 
   let client = null;
   let channel = null;
-  let roomCode = "";
+
   let myId = "";
   let myName = "";
+  let roomCode = "";
   let isHost = false;
   let connected = false;
+
   let players = [];
-  let game = null;
   let chatMessages = [];
+
   let toastTimer = null;
 
+  // =========================================
+  // 기본 화면 기능
+  // =========================================
+
   function notify(message) {
-    const toast = $("toast");
-    toast.textContent = message;
-    toast.classList.add("show");
+    const element = $("toast");
+    if (!element) {
+      alert(message);
+      return;
+    }
+
+    element.textContent = message;
+    element.classList.add("show");
+
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+
+    toastTimer = setTimeout(() => {
+      element.classList.remove("show");
+    }, 2600);
   }
 
   function setStatus(message) {
-    $("connectionStatus").textContent = message;
+    if ($("connectionStatus")) {
+      $("connectionStatus").textContent = message;
+    }
   }
 
   function showScreen(id) {
     ["homeScreen", "lobbyScreen", "gameScreen"].forEach(screen => {
-      $(screen).classList.toggle("hidden", screen !== id);
+      if ($(screen)) {
+        $(screen).classList.toggle("hidden", screen !== id);
+      }
     });
 
-    $("chatSection").classList.toggle(
-      "hidden",
-      id === "homeScreen"
-    );
+    if ($("chatSection")) {
+      $("chatSection").classList.toggle(
+        "hidden",
+        id === "homeScreen"
+      );
+    }
+  }
+
+  function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    })[char]);
   }
 
   function validName() {
-    const name = $("playerName").value.trim();
+    const name = $("playerName")?.value.trim() || "";
 
     if (!name) {
       notify("닉네임을 입력하세요.");
@@ -195,51 +100,22 @@
 
   function randomCode() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let result = "";
+    let code = "";
 
     for (let i = 0; i < 6; i++) {
-      result += chars[Math.floor(Math.random() * chars.length)];
+      code += chars[Math.floor(Math.random() * chars.length)];
     }
 
-    return result;
+    return code;
   }
 
-  function makeId() {
-    return crypto.randomUUID
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2) + Date.now();
-  }
+  // =========================================
+  // SUPABASE 연결 및 익명 로그인
+  // =========================================
 
-  function getPlayer(id) {
-    return players.find(player => player.id === id);
-  }
-
-  function alivePlayers() {
-    return players.filter(player => player.alive);
-  }
-
-  function escapeHTML(value) {
-    return String(value).replace(/[&<>"']/g, char => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    })[char]);
-  }
-
-  function createSupabase() {
+  async function initialize() {
     if (!window.supabase) {
-      notify("Supabase 라이브러리를 불러오지 못했습니다.");
-      return false;
-    }
-
-    if (
-      SUPABASE_URL.includes("여기에_") ||
-      SUPABASE_ANON_KEY.includes("여기에_")
-    ) {
-      notify("game.js에 Supabase 정보를 먼저 입력하세요.");
-      return false;
+      throw new Error("Supabase 라이브러리를 불러오지 못했습니다.");
     }
 
     client = window.supabase.createClient(
@@ -247,213 +123,404 @@
       SUPABASE_ANON_KEY
     );
 
-    return true;
+    setStatus("로그인 중...");
+
+    const { data: sessionData, error: sessionError } =
+      await client.auth.getSession();
+
+    if (sessionError) throw sessionError;
+
+    let user = sessionData.session?.user;
+
+    if (!user) {
+      const { data, error } =
+        await client.auth.signInAnonymously();
+
+      if (error) throw error;
+
+      user = data.user;
+    }
+
+    if (!user) {
+      throw new Error("사용자 정보를 가져오지 못했습니다.");
+    }
+
+    myId = user.id;
+
+    setStatus("온라인 연결됨");
   }
 
-  async function openChannel(code) {
+  // =========================================
+  // 데이터베이스 RPC
+  // =========================================
+
+  async function rpc(name, params) {
+    const { data, error } = await client.rpc(name, params);
+
+    if (error) {
+      console.error("Supabase 오류:", error);
+      throw error;
+    }
+
+    if (data?.ok === false) {
+      throw new Error(data.error || "요청을 처리하지 못했습니다.");
+    }
+
+    return data;
+  }
+
+  // =========================================
+  // 실시간 방 연결
+  // =========================================
+
+  async function connectRoom(code) {
     roomCode = code;
 
     channel = client.channel("mafia-room-" + code, {
       config: {
-        presence: { key: myId },
-        broadcast: { self: false }
+        presence: {
+          key: myId
+        },
+        broadcast: {
+          self: false
+        }
       }
     });
 
-    channel.on("presence", { event: "sync" }, () => {
-      updatePresenceList();
-    });
+    channel.on(
+      "presence",
+      { event: "sync" },
+      () => {
+        refreshLobby().catch(console.error);
+      }
+    );
 
-    channel.on("broadcast", { event: "message" }, ({ payload }) => {
-      handleMessage(payload);
-    });
+    channel.on(
+      "broadcast",
+      { event: "room_changed" },
+      () => {
+        refreshLobby().catch(console.error);
+      }
+    );
 
-    return new Promise((resolve, reject) => {
+    channel.on(
+      "broadcast",
+      { event: "chat" },
+      ({ payload }) => {
+        if (payload?.sender === myId) return;
+
+        addChat(
+          payload.name,
+          payload.message
+        );
+      }
+    );
+
+    await new Promise((resolve, reject) => {
       channel.subscribe(async status => {
         if (status === "SUBSCRIBED") {
           connected = true;
-          setStatus("온라인 연결됨");
 
-          await channel.track({
-            id: myId,
-            name: myName,
-            host: isHost,
-            joinedAt: Date.now()
-          });
+          try {
+            await channel.track({
+              id: myId,
+              name: myName,
+              joinedAt: new Date().toISOString()
+            });
 
-          resolve(true);
+            resolve(true);
+          } catch (error) {
+            reject(error);
+          }
         }
 
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          connected = false;
-          reject(new Error("방 연결에 실패했습니다."));
+        if (
+          status === "CHANNEL_ERROR" ||
+          status === "TIMED_OUT"
+        ) {
+          reject(new Error("실시간 방 연결에 실패했습니다."));
         }
       });
     });
+
+    await refreshLobby();
   }
 
-  async function sendMessage(type, data = {}) {
+  async function broadcastRoomChanged() {
     if (!channel || !connected) return;
 
     await channel.send({
       type: "broadcast",
-      event: "message",
+      event: "room_changed",
       payload: {
-        type,
-        sender: myId,
-        data
+        sender: myId
       }
     });
   }
 
-  function updatePresenceList() {
-    if (!channel) return;
+  // =========================================
+  // 대기실 정보 가져오기
+  // =========================================
 
-    const state = channel.presenceState();
-    const found = new Map();
+  async function refreshLobby() {
+    if (!roomCode || !client) return;
 
-    Object.values(state).flat().forEach(item => {
-      if (!item.id) return;
-
-      found.set(item.id, {
-        id: item.id,
-        name: item.name || "플레이어",
-        host: !!item.host
-      });
+    const data = await rpc("get_mafia_lobby", {
+      p_code: roomCode
     });
 
-    if (!game) {
-      players = Array.from(found.values()).map(item => ({
-        ...item,
-        alive: true
-      }));
+    players = data.players || [];
 
-      renderLobby();
-    }
-  }
+    const me = players.find(player => player.id === myId);
 
-  function renderLobby() {
-    $("roomCodeDisplay").textContent = roomCode;
-    $("playerCount").textContent =
-      `${players.length} / ${MAX_PLAYERS}`;
-
-    $("hostBadge").classList.toggle("hidden", !isHost);
-    $("hostSettings").classList.toggle("hidden", !isHost);
-    $("guestNotice").classList.toggle("hidden", isHost);
-
-    $("startGameBtn").classList.toggle("hidden", !isHost);
-    $("startGameBtn").disabled = players.length < 3;
-
-    $("playerList").innerHTML = players.map((player, index) => `
-      <div class="player-item">
-        <div class="player-avatar">${index + 1}</div>
-        <span class="player-name">${escapeHTML(player.name)}</span>
-        <span class="player-tag">${player.host ? "방장" : "참가자"}</span>
-      </div>
-    `).join("");
-
-    if (!players.length) {
-      $("playerList").innerHTML =
-        '<p class="notice">참가자를 기다리는 중입니다.</p>';
-    }
-  }
-
-  async function createRoom() {
-    if (!createSupabase()) return;
-
-    const name = validName();
-    if (!name) return;
-
-    myId = makeId();
-    myName = name;
-    isHost = true;
-
-    setStatus("방 생성 중...");
-
-    let success = false;
-
-    for (let i = 0; i < 5; i++) {
-      const code = randomCode();
-
-      try {
-        await openChannel(code);
-        success = true;
-        break;
-      } catch (error) {
-        if (channel) {
-          await client.removeChannel(channel);
-          channel = null;
-        }
-      }
-    }
-
-    if (!success) {
-      notify("방을 만들지 못했습니다. 다시 시도하세요.");
-      setStatus("연결 실패");
+    if (!me) {
+      notify("방에서 나갔습니다.");
+      await closeRoom(false);
       return;
     }
 
-    players = [{
-      id: myId,
-      name: myName,
-      host: true,
-      alive: true
-    }];
+    isHost = !!me.host;
 
-    showScreen("lobbyScreen");
     renderLobby();
-    notify("방이 만들어졌습니다.");
   }
 
-  async function joinRoom() {
-    if (!createSupabase()) return;
+  // =========================================
+  // 대기실 화면
+  // =========================================
 
+  function renderLobby() {
+    if (!roomCode) return;
+
+    $("roomCodeDisplay").textContent = roomCode;
+
+    $("playerCount").textContent =
+      `${players.length} / ${MAX_PLAYERS}`;
+
+    $("hostBadge")?.classList.toggle("hidden", !isHost);
+    $("hostSettings")?.classList.toggle("hidden", !isHost);
+    $("guestNotice")?.classList.toggle("hidden", isHost);
+
+    $("startGameBtn")?.classList.toggle("hidden", !isHost);
+
+    if ($("startGameBtn")) {
+      $("startGameBtn").disabled = players.length < 3;
+    }
+
+    if ($("playerList")) {
+      $("playerList").innerHTML = players.map((player, index) => `
+        <div class="player-item">
+          <div class="player-avatar">${index + 1}</div>
+          <span class="player-name">
+            ${escapeHTML(player.name)}
+          </span>
+          <span class="player-tag">
+            ${player.host ? "방장" : "참가자"}
+          </span>
+        </div>
+      `).join("");
+
+      if (players.length === 0) {
+        $("playerList").innerHTML =
+          '<p class="notice">참가자를 기다리는 중입니다.</p>';
+      }
+    }
+
+    // 방 설정 표시
+    if (isHost) {
+      loadSettings();
+    }
+  }
+
+  async function loadSettings() {
+    try {
+      const data = await rpc("get_mafia_lobby", {
+        p_code: roomCode
+      });
+
+      if ($("mafiaCount")) {
+        $("mafiaCount").value =
+          data.settings?.mafiaCount ?? 2;
+      }
+
+      if ($("discussionTime")) {
+        $("discussionTime").value =
+          data.settings?.discussionTime ?? 3;
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  // =========================================
+  // 방 만들기
+  // =========================================
+
+  async function createRoom() {
     const name = validName();
     if (!name) return;
 
-    const code = $("roomCodeInput").value.trim().toUpperCase();
+    try {
+      await initialize();
+
+      myName = name;
+      isHost = true;
+
+      setStatus("방 생성 중...");
+
+      let created = false;
+
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const code = randomCode();
+
+        const result = await rpc("create_mafia_room", {
+          p_code: code,
+          p_name: myName
+        });
+
+        if (result.ok) {
+          roomCode = code;
+          created = true;
+          break;
+        }
+      }
+
+      if (!created) {
+        throw new Error("방 코드를 만들지 못했습니다.");
+      }
+
+      await connectRoom(roomCode);
+
+      showScreen("lobbyScreen");
+
+      await broadcastRoomChanged();
+
+      notify("방이 만들어졌습니다!");
+
+    } catch (error) {
+      console.error(error);
+      notify(error.message || "방 생성에 실패했습니다.");
+      setStatus("연결 실패");
+    }
+  }
+
+  // =========================================
+  // 방 참가하기
+  // =========================================
+
+  async function joinRoom() {
+    const name = validName();
+    if (!name) return;
+
+    const code =
+      $("roomCodeInput")?.value.trim().toUpperCase() || "";
 
     if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
       notify("올바른 6자리 방 코드를 입력하세요.");
       return;
     }
 
-    myId = makeId();
-    myName = name;
-    isHost = false;
-
-    setStatus("방 참가 중...");
-
     try {
-      await openChannel(code);
+      await initialize();
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      myName = name;
+      isHost = false;
 
-      updatePresenceList();
+      setStatus("방 참가 중...");
 
-      if (!players.length) {
-        await closeRoom();
-        notify("해당 방을 찾을 수 없습니다.");
-        return;
-      }
+      await rpc("join_mafia_room", {
+        p_code: code,
+        p_name: myName
+      });
 
-      if (players.length >= MAX_PLAYERS) {
-        await closeRoom();
-        notify("방이 가득 찼습니다.");
-        return;
-      }
+      await connectRoom(code);
 
       showScreen("lobbyScreen");
-      renderLobby();
-      notify("방에 참가했습니다.");
+
+      await broadcastRoomChanged();
+
+      notify("방에 참가했습니다!");
+
     } catch (error) {
       console.error(error);
-      notify("방에 연결할 수 없습니다.");
+
+      const messages = {
+        ROOM_NOT_FOUND: "존재하지 않는 방입니다.",
+        ROOM_FULL: "방이 가득 찼습니다.",
+        GAME_ALREADY_STARTED: "이미 게임이 시작된 방입니다.",
+        CODE_EXISTS: "방 코드가 중복되었습니다."
+      };
+
+      notify(
+        messages[error.message] ||
+        error.message ||
+        "방 참가에 실패했습니다."
+      );
+
       setStatus("연결 실패");
+
+      if (channel) {
+        await client.removeChannel(channel);
+        channel = null;
+      }
+
+      connected = false;
+      roomCode = "";
     }
   }
 
-  async function closeRoom() {
+  // =========================================
+  // 방 설정 변경
+  // =========================================
+
+  async function saveSettings() {
+    if (!isHost || !roomCode) return;
+
+    const mafiaCount = Number($("mafiaCount").value);
+    const discussionTime = Number($("discussionTime").value);
+
+    try {
+      await rpc("update_mafia_settings", {
+        p_code: roomCode,
+        p_settings: {
+          mafiaCount,
+          discussionTime
+        }
+      });
+
+      await broadcastRoomChanged();
+
+      notify("게임 설정을 저장했습니다.");
+
+    } catch (error) {
+      notify(error.message || "설정 저장에 실패했습니다.");
+    }
+  }
+
+  // =========================================
+  // 방 나가기
+  // =========================================
+
+  async function closeRoom(callServer = true) {
+    const oldCode = roomCode;
+
+    try {
+      if (callServer && client && oldCode) {
+        await rpc("leave_mafia_room", {
+          p_code: oldCode
+        });
+      }
+
+      if (channel && connected) {
+        await channel.send({
+          type: "broadcast",
+          event: "room_changed",
+          payload: { sender: myId }
+        });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+
     connected = false;
 
     if (channel && client) {
@@ -463,287 +530,37 @@
     channel = null;
     roomCode = "";
     players = [];
-    game = null;
     chatMessages = [];
     isHost = false;
 
+    renderChat();
     showScreen("homeScreen");
     setStatus("대기 중");
-  }
 
-  async function startGame() {
-    if (!isHost || !connected) return;
-
-    updatePresenceList();
-
-    if (players.length < 3) {
-      notify("최소 3명이 필요합니다.");
-      return;
-    }
-
-    const mafiaCount = Number($("mafiaCount").value);
-
-    if (mafiaCount >= players.length) {
-      notify("마피아 수가 너무 많습니다.");
-      return;
-    }
-
-    const shuffled = [...players].sort(() => Math.random() - 0.5);
-
-    const roleIds = Object.keys(ROLES);
-    const mafiaRoles = roleIds.filter(id => ROLES[id].team === "mafia");
-
-    const citizenRoles = [
-      "doctor", "reporter", "police", "detective",
-      "medium", "politician", "soldier", "watcher",
-      "trapper", "guardian", "psychologist", "timeTraveler"
-    ];
-
-    const neutralRoles = [
-      "clown", "immortal", "mirror", "trickster", "psycho"
-    ];
-
-    const assigned = [];
-    const selectedMafia = mafiaRoles
-      .sort(() => Math.random() - 0.5)
-      .slice(0, mafiaCount);
-
-    selectedMafia.forEach(role => assigned.push(role));
-
-    const remaining = shuffled.length - assigned.length;
-
-    const selectedCitizen = citizenRoles
-      .sort(() => Math.random() - 0.5)
-      .slice(0, Math.max(0, remaining - 1));
-
-    selectedCitizen.forEach(role => assigned.push(role));
-
-    while (assigned.length < shuffled.length) {
-      assigned.push(neutralRoles[
-        Math.floor(Math.random() * neutralRoles.length)
-      ]);
-    }
-
-    const roleOrder = [...assigned].sort(() => Math.random() - 0.5);
-
-    const gamePlayers = shuffled.map((player, index) => ({
-      ...player,
-      role: roleOrder[index],
-      alive: true
-    }));
-
-    game = {
-      round: 1,
-      phase: "night",
-      discussionTime: Number($("discussionTime").value),
-      players: gamePlayers,
-      votes: {},
-      nightActions: {},
-      message: "밤이 되었습니다. 각자의 역할을 확인하세요."
-    };
-
-    await sendMessage("GAME_START", game);
-    applyGame(game);
-  }
-
-  function applyGame(nextGame) {
-    game = nextGame;
-    players = game.players;
-
-    showScreen("gameScreen");
-
-    const me = game.players.find(player => player.id === myId);
-
-    $("myRole").textContent = me ? ROLES[me.role].name : "알 수 없음";
-    $("myRoleDescription").textContent =
-      me ? ROLES[me.role].description : "";
-
-    renderGame();
-  }
-
-  function renderGame() {
-    if (!game) return;
-
-    $("roundLabel").textContent = `${game.round}일차`;
-    $("phaseLabel").textContent =
-      game.phase === "night" ? "밤" : "낮";
-
-    $("gameTitle").textContent =
-      game.phase === "night" ? "밤이 되었습니다" : "낮이 되었습니다";
-
-    $("gameMessage").textContent = game.message;
-
-    $("aliveCount").textContent =
-      `${alivePlayers().length}명 생존`;
-
-    $("gamePlayerList").innerHTML = game.players.map((player, index) => `
-      <div class="player-item ${player.alive ? "" : "dead"}">
-        <div class="player-avatar">${index + 1}</div>
-        <span class="player-name">${escapeHTML(player.name)}</span>
-        <span class="player-tag">${player.alive ? "생존" : "탈락"}</span>
-      </div>
-    `).join("");
-
-    $("hostGameControls").classList.toggle("hidden", !isHost);
-
-    renderActions();
-    renderChat();
-  }
-
-  function renderActions() {
-    const area = $("actionArea");
-    const me = getPlayer(myId);
-
-    area.innerHTML = "";
-
-    if (!me || !me.alive) {
-      area.textContent = "탈락한 플레이어는 행동할 수 없습니다.";
-      return;
-    }
-
-    const targets = game.players.filter(p =>
-      p.alive && p.id !== myId
-    );
-
-    if (game.phase === "day") {
-      const label = document.createElement("h3");
-      label.textContent = "투표할 플레이어";
-      area.appendChild(label);
-
-      const select = document.createElement("select");
-      select.id = "voteTarget";
-
-      targets.forEach(player => {
-        const option = document.createElement("option");
-        option.value = player.id;
-        option.textContent = player.name;
-        select.appendChild(option);
-      });
-
-      area.appendChild(select);
-
-      const button = document.createElement("button");
-      button.className = "secondary";
-      button.textContent = "투표하기";
-      button.onclick = () => {
-        if (!select.value) return;
-        sendMessage("VOTE", { target: select.value });
-        notify("투표를 제출했습니다.");
-      };
-
-      area.appendChild(button);
-      return;
-    }
-
-    if (game.phase === "night" && ROLES[me.role].team === "mafia") {
-      const label = document.createElement("h3");
-      label.textContent = "밤 행동 대상";
-      area.appendChild(label);
-
-      const select = document.createElement("select");
-      select.id = "nightTarget";
-
-      targets.forEach(player => {
-        const option = document.createElement("option");
-        option.value = player.id;
-        option.textContent = player.name;
-        select.appendChild(option);
-      });
-
-      area.appendChild(select);
-
-      const button = document.createElement("button");
-      button.className = "secondary";
-      button.textContent = "대상 선택";
-      button.onclick = () => {
-        if (!select.value) return;
-        sendMessage("NIGHT_ACTION", { target: select.value });
-        notify("행동을 제출했습니다.");
-      };
-
-      area.appendChild(button);
-    } else if (game.phase === "night") {
-      area.textContent = "밤이 끝날 때까지 기다리세요.";
+    if (callServer) {
+      notify("방에서 나왔습니다.");
     }
   }
 
-  function checkWinner() {
-    const alive = alivePlayers();
-    const mafia = alive.filter(p => ROLES[p.role].team === "mafia");
-    const others = alive.filter(p => ROLES[p.role].team !== "mafia");
-
-    if (mafia.length === 0) return "시민 팀";
-    if (mafia.length >= others.length) return "마피아 팀";
-    return null;
-  }
-
-  async function advancePhase() {
-    if (!isHost || !game) return;
-
-    if (game.phase === "night") {
-      const targetVotes = Object.values(game.nightActions);
-      const counts = {};
-
-      targetVotes.forEach(id => {
-        counts[id] = (counts[id] || 0) + 1;
-      });
-
-      const target = Object.entries(counts)
-        .sort((a, b) => b[1] - a[1])[0]?.[0];
-
-      if (target) {
-        const victim = getPlayer(target);
-        if (victim && victim.alive) victim.alive = false;
-      }
-
-      game.phase = "day";
-      game.message = "아침이 되었습니다. 토론 후 투표하세요.";
-      game.votes = {};
-      game.nightActions = {};
-    } else {
-      const counts = {};
-
-      Object.values(game.votes).forEach(id => {
-        counts[id] = (counts[id] || 0) + 1;
-      });
-
-      const result = Object.entries(counts)
-        .sort((a, b) => b[1] - a[1])[0];
-
-      if (result) {
-        const target = getPlayer(result[0]);
-        if (target && target.alive) target.alive = false;
-      }
-
-      const winner = checkWinner();
-
-      if (winner) {
-        game.phase = "end";
-        game.message = `${winner} 승리!`;
-        await sendMessage("GAME_UPDATE", game);
-        applyGame(game);
-        notify(`${winner} 승리!`);
-        return;
-      }
-
-      game.round++;
-      game.phase = "night";
-      game.message = "밤이 되었습니다. 마피아는 행동을 선택하세요.";
-      game.votes = {};
-      game.nightActions = {};
-    }
-
-    await sendMessage("GAME_UPDATE", game);
-    applyGame(game);
-  }
+  // =========================================
+  // 채팅
+  // =========================================
 
   function addChat(name, message, system = false) {
-    chatMessages.push({ name, message, system });
+    chatMessages.push({
+      name,
+      message,
+      system
+    });
+
     chatMessages = chatMessages.slice(-100);
+
     renderChat();
   }
 
   function renderChat() {
+    if (!$("chatMessages")) return;
+
     $("chatHeading").textContent = "전체 채팅";
     $("chatMode").textContent = "전체 공개";
 
@@ -752,81 +569,119 @@
         ${
           item.system
             ? `<span class="system">${escapeHTML(item.message)}</span>`
-            : `<strong>${escapeHTML(item.name)}</strong>${escapeHTML(item.message)}`
+            : `<strong>${escapeHTML(item.name)}</strong>
+               ${escapeHTML(item.message)}`
         }
       </div>
     `).join("");
 
-    $("chatMessages").scrollTop = $("chatMessages").scrollHeight;
-  }
-
-  async function handleMessage(message) {
-    if (!message || message.sender === myId) return;
-
-    const { type, data } = message;
-
-    if (type === "CHAT") {
-      addChat(data.name, data.message);
-      return;
-    }
-
-    if (type === "GAME_START" || type === "GAME_UPDATE") {
-      if (!isHost) applyGame(data);
-      return;
-    }
-
-    if (!isHost || !game) return;
-
-    if (type === "VOTE") {
-      game.votes[message.sender] = data.target;
-      return;
-    }
-
-    if (type === "NIGHT_ACTION") {
-      const actor = getPlayer(message.sender);
-
-      if (
-        actor &&
-        actor.alive &&
-        ROLES[actor.role].team === "mafia"
-      ) {
-        game.nightActions[message.sender] = data.target;
-      }
-    }
+    $("chatMessages").scrollTop =
+      $("chatMessages").scrollHeight;
   }
 
   async function sendChat(event) {
     event.preventDefault();
 
-    const message = $("chatInput").value.trim();
-    if (!message || !connected) return;
+    const message = $("chatInput")?.value.trim();
+
+    if (!message || !connected || !channel) return;
+
+    if (message.length > 200) {
+      notify("채팅은 200글자 이하로 입력하세요.");
+      return;
+    }
 
     $("chatInput").value = "";
 
     addChat(myName, message);
 
-    await sendMessage("CHAT", {
-      name: myName,
-      message
+    await channel.send({
+      type: "broadcast",
+      event: "chat",
+      payload: {
+        sender: myId,
+        name: myName,
+        message
+      }
     });
   }
 
+  // =========================================
+  // 방 코드 복사
+  // =========================================
+
   async function copyRoomCode() {
+    if (!roomCode) return;
+
     try {
       await navigator.clipboard.writeText(roomCode);
       notify("방 코드를 복사했습니다.");
     } catch {
-      notify("코드: " + roomCode);
+      notify("방 코드: " + roomCode);
     }
   }
 
-  $("createRoomBtn").addEventListener("click", createRoom);
-  $("joinRoomBtn").addEventListener("click", joinRoom);
-  $("copyCodeBtn").addEventListener("click", copyRoomCode);
-  $("startGameBtn").addEventListener("click", startGame);
-  $("leaveRoomBtn").addEventListener("click", closeRoom);
-  $("nextPhaseBtn").addEventListener("click", advancePhase);
-  $("chatForm").addEventListener("submit", sendChat);
+  // =========================================
+  // 게임 시작
+  // =========================================
 
-  setStatus("Supabase 설정 필요");
+  async function startGame() {
+    if (!isHost) return;
+
+    notify(
+      "대기실은 작동합니다. 게임 진행 및 직업 배정 기능은 다음 단계에서 연결합니다."
+    );
+  }
+
+  // =========================================
+  // 버튼 연결
+  // =========================================
+
+  $("createRoomBtn")?.addEventListener(
+    "click",
+    createRoom
+  );
+
+  $("joinRoomBtn")?.addEventListener(
+    "click",
+    joinRoom
+  );
+
+  $("copyCodeBtn")?.addEventListener(
+    "click",
+    copyRoomCode
+  );
+
+  $("startGameBtn")?.addEventListener(
+    "click",
+    startGame
+  );
+
+  $("leaveRoomBtn")?.addEventListener(
+    "click",
+    () => closeRoom(true)
+  );
+
+  $("chatForm")?.addEventListener(
+    "submit",
+    sendChat
+  );
+
+  $("mafiaCount")?.addEventListener(
+    "change",
+    saveSettings
+  );
+
+  $("discussionTime")?.addEventListener(
+    "change",
+    saveSettings
+  );
+
+  // =========================================
+  // 초기 화면
+  // =========================================
+
+  setStatus("대기 중");
+  renderChat();
+
 })();
