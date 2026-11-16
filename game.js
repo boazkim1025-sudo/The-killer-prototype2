@@ -13,6 +13,8 @@
     "sb_publishable_5bcixPexFdz1S2O1IoYsow_YjzwCq3o";
 
   const MAX_PLAYERS = 20;
+  const MIN_PLAYERS = 5;
+
   const ROLE_INFO = {
     citizen: { name: "시민", description: "토론과 투표로 마피아를 찾아내세요." },
     doctor: { name: "의사", description: "시민 팀 소속 직업입니다." },
@@ -37,11 +39,14 @@
     ghostMafia: { name: "유령 마피아", description: "마피아 팀 소속 직업입니다." }
   };
 
-  let currentRole = null;
-  let gameScreenLoading = false;
+  // =========================================
+  // 전역 상태
+  // =========================================
+
   const $ = id => document.getElementById(id);
 
   let client = null;
+  let initPromise = null;
   let channel = null;
 
   let myId = "";
@@ -52,8 +57,11 @@
 
   let players = [];
   let chatMessages = [];
+  let currentRole = null;
 
   let toastTimer = null;
+  let gameScreenLoading = false;
+  let lobbyRefreshRunning = false;
 
   // =========================================
   // 기본 화면 기능
@@ -61,6 +69,7 @@
 
   function notify(message) {
     const element = $("toast");
+
     if (!element) {
       alert(message);
       return;
@@ -139,40 +148,72 @@
   // =========================================
 
   async function initialize() {
-    if (!window.supabase) {
-      throw new Error("Supabase 라이브러리를 불러오지 못했습니다.");
+    if (client && myId) {
+      return;
     }
 
-    client = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY
-    );
-
-    setStatus("로그인 중...");
-
-    const { data: sessionData, error: sessionError } =
-      await client.auth.getSession();
-
-    if (sessionError) throw sessionError;
-
-    let user = sessionData.session?.user;
-
-    if (!user) {
-      const { data, error } =
-        await client.auth.signInAnonymously();
-
-      if (error) throw error;
-
-      user = data.user;
+    if (initPromise) {
+      return initPromise;
     }
 
-    if (!user) {
-      throw new Error("사용자 정보를 가져오지 못했습니다.");
+    initPromise = (async () => {
+      if (!window.supabase) {
+        throw new Error(
+          "Supabase 라이브러리를 불러오지 못했습니다. 인터넷 연결과 index.html을 확인하세요."
+        );
+      }
+
+      if (!client) {
+        client = window.supabase.createClient(
+          SUPABASE_URL,
+          SUPABASE_ANON_KEY
+        );
+      }
+
+      setStatus("Supabase 로그인 중...");
+
+      const {
+        data: sessionData,
+        error: sessionError
+      } = await client.auth.getSession();
+
+      if (sessionError) {
+        throw sessionError;
+      }
+
+      let user = sessionData.session?.user;
+
+      if (!user) {
+        const {
+          data,
+          error
+        } = await client.auth.signInAnonymously();
+
+        if (error) {
+          throw error;
+        }
+
+        user = data.user;
+      }
+
+      if (!user) {
+        throw new Error("사용자 정보를 가져오지 못했습니다.");
+      }
+
+      myId = user.id;
+
+      setStatus("Supabase 연결됨");
+    })();
+
+    try {
+      await initPromise;
+    } catch (error) {
+      initPromise = null;
+      client = null;
+      myId = "";
+      setStatus("Supabase 연결 실패");
+      throw error;
     }
-
-    myId = user.id;
-
-    setStatus("온라인 연결됨");
   }
 
   // =========================================
@@ -180,10 +221,17 @@
   // =========================================
 
   async function rpc(name, params) {
-    const { data, error } = await client.rpc(name, params);
+    if (!client) {
+      throw new Error("Supabase에 먼저 연결해야 합니다.");
+    }
+
+    const {
+      data,
+      error
+    } = await client.rpc(name, params);
 
     if (error) {
-      console.error("Supabase 오류:", error);
+      console.error("Supabase RPC 오류:", name, error);
       throw error;
     }
 
@@ -201,6 +249,13 @@
   async function connectRoom(code) {
     roomCode = code;
 
+    if (channel && client) {
+      await client.removeChannel(channel);
+      channel = null;
+    }
+
+    connected = false;
+
     channel = client.channel("mafia-room-" + code, {
       config: {
         presence: {
@@ -216,7 +271,9 @@
       "presence",
       { event: "sync" },
       () => {
-        refreshLobby().catch(console.error);
+        refreshLobby().catch(error => {
+          console.error("참가자 목록 갱신 오류:", error);
+        });
       }
     );
 
@@ -224,7 +281,9 @@
       "broadcast",
       { event: "room_changed" },
       () => {
-        refreshLobby().catch(console.error);
+        refreshLobby().catch(error => {
+          console.error("방 정보 갱신 오류:", error);
+        });
       }
     );
 
@@ -232,37 +291,51 @@
       "broadcast",
       { event: "chat" },
       ({ payload }) => {
-        if (payload?.sender === myId) return;
+        if (!payload || payload.sender === myId) return;
 
-        addChat(
-          payload.name,
-          payload.message
-        );
+        addChat(payload.name, payload.message);
       }
     );
 
     await new Promise((resolve, reject) => {
-      channel.subscribe(async status => {
-        if (status === "SUBSCRIBED") {
-          connected = true;
+      let finished = false;
 
+      const timeout = setTimeout(() => {
+        if (!finished) {
+          finished = true;
+          reject(new Error("실시간 방 연결 시간이 초과되었습니다."));
+        }
+      }, 15000);
+
+      channel.subscribe(async status => {
+        if (status === "SUBSCRIBED" && !finished) {
           try {
+            connected = true;
+
             await channel.track({
               id: myId,
               name: myName,
               joinedAt: new Date().toISOString()
             });
 
+            finished = true;
+            clearTimeout(timeout);
+            setStatus("온라인 연결됨");
             resolve(true);
           } catch (error) {
+            finished = true;
+            clearTimeout(timeout);
             reject(error);
           }
         }
 
         if (
-          status === "CHANNEL_ERROR" ||
-          status === "TIMED_OUT"
+          (status === "CHANNEL_ERROR" ||
+            status === "TIMED_OUT") &&
+          !finished
         ) {
+          finished = true;
+          clearTimeout(timeout);
           reject(new Error("실시간 방 연결에 실패했습니다."));
         }
       });
@@ -274,65 +347,60 @@
   async function broadcastRoomChanged() {
     if (!channel || !connected) return;
 
-    await channel.send({
+    const result = await channel.send({
       type: "broadcast",
       event: "room_changed",
       payload: {
         sender: myId
       }
     });
+
+    if (result === "error") {
+      console.error("방 변경 알림 전송에 실패했습니다.");
+    }
   }
 
   // =========================================
   // 대기실 정보 가져오기
   // =========================================
 
-    async function refreshLobby() {
-    if (!roomCode || !client) return;
+  async function refreshLobby() {
+    if (!roomCode || !client || lobbyRefreshRunning) return;
 
-    const data = await rpc("get_mafia_lobby", {
-      p_code: roomCode
-    });
+    lobbyRefreshRunning = true;
 
-    players = data.players || [];
+    try {
+      const data = await rpc("get_mafia_lobby", {
+        p_code: roomCode
+      });
 
-    const me = players.find(player => player.id === myId);
+      players = data.players || [];
 
-    if (!me) {
-      notify("방에서 나갔습니다.");
-      await closeRoom(false);
-      return;
+      const me = players.find(player => player.id === myId);
+
+      if (!me) {
+        notify("방에서 나갔습니다.");
+        await closeRoom(false);
+        return;
+      }
+
+      isHost = !!me.host;
+
+      if (data.status === "playing") {
+        await showGameScreen();
+        return;
+      }
+
+      renderLobby();
+    } finally {
+      lobbyRefreshRunning = false;
     }
-
-    isHost = !!me.host;
-
-    if (data.status === "playing") {
-      await showGameScreen();
-      return;
-    }
-
-    renderLobby();
   }
-    if (!roomCode || !client) return;
 
-    const data = await rpc("get_mafia_lobby", {
-      p_code: roomCode
-    });
+  // =========================================
+  // 게임 화면
+  // =========================================
 
-    players = data.players || [];
-
-    const me = players.find(player => player.id === myId);
-
-    if (!me) {
-      notify("방에서 나갔습니다.");
-      await closeRoom(false);
-      return;
-    }
-
-    isHost = !!me.host;
-
-    renderLobby();
-  }
   async function showGameScreen() {
     if (!roomCode || gameScreenLoading) return;
 
@@ -346,11 +414,12 @@
       currentRole = data;
 
       const info = ROLE_INFO[data.role_id] || {
-        name: data.role_id,
-        description: "직업 정보"
+        name: data.role_id || "알 수 없는 직업",
+        description: "직업 정보를 확인할 수 없습니다."
       };
 
       $("roundLabel").textContent = `제 ${data.round}일차`;
+
       $("phaseLabel").textContent =
         data.phase === "night" ? "밤" : data.phase;
 
@@ -362,31 +431,36 @@
       $("myRoleDescription").textContent =
         `팀: ${data.team === "mafia" ? "마피아" : "시민"} · ${info.description}`;
 
-      $("aliveCount").textContent = players.length;
+      $("aliveCount").textContent =
+        `${players.length}명`;
 
       if ($("gamePlayerList")) {
-        $("gamePlayerList").innerHTML = players.map((p, i) => `
+        $("gamePlayerList").innerHTML = players.map((player, index) => `
           <div class="player-item">
-            <span>${i + 1}. ${escapeHTML(p.name)}</span>
+            <span>${index + 1}. ${escapeHTML(player.name)}</span>
           </div>
         `).join("");
       }
 
       if ($("actionArea")) {
         $("actionArea").innerHTML =
-          '<p class="notice">직업별 능력은 다음 단계에서 구현됩니다.</p>';
+          '<p class="notice">직업별 능력과 낮·밤 진행은 다음 단계에서 연결됩니다.</p>';
+      }
+
+      if ($("hostGameControls")) {
+        $("hostGameControls").classList.add("hidden");
       }
 
       showScreen("gameScreen");
-
+      setStatus("게임 진행 중");
     } catch (error) {
-      console.error(error);
+      console.error("직업 정보 오류:", error);
       notify(error.message || "직업 정보를 불러오지 못했습니다.");
-
     } finally {
       gameScreenLoading = false;
     }
   }
+
   // =========================================
   // 대기실 화면
   // =========================================
@@ -406,7 +480,8 @@
     $("startGameBtn")?.classList.toggle("hidden", !isHost);
 
     if ($("startGameBtn")) {
-      $("startGameBtn").disabled = players.length < 3;
+      $("startGameBtn").disabled =
+        players.length < MIN_PLAYERS;
     }
 
     if ($("playerList")) {
@@ -428,7 +503,6 @@
       }
     }
 
-    // 방 설정 표시
     if (isHost) {
       loadSettings();
     }
@@ -450,7 +524,7 @@
           data.settings?.discussionTime ?? 3;
       }
     } catch (error) {
-      console.error(error);
+      console.error("설정 불러오기 오류:", error);
     }
   }
 
@@ -471,24 +545,41 @@
       setStatus("방 생성 중...");
 
       let created = false;
+      let lastError = null;
 
       for (let attempt = 0; attempt < 10; attempt++) {
         const code = randomCode();
 
-        const result = await rpc("create_mafia_room", {
-          p_code: code,
-          p_name: myName
-        });
+        try {
+          const result = await rpc("create_mafia_room", {
+            p_code: code,
+            p_name: myName
+          });
 
-        if (result.ok) {
-          roomCode = code;
-          created = true;
-          break;
+          if (result?.ok) {
+            roomCode = code;
+            created = true;
+            break;
+          }
+
+          if (result?.error === "CODE_EXISTS") {
+            continue;
+          }
+
+          throw new Error(result?.error || "방 생성에 실패했습니다.");
+        } catch (error) {
+          lastError = error;
+
+          if (error.message === "CODE_EXISTS") {
+            continue;
+          }
+
+          throw error;
         }
       }
 
       if (!created) {
-        throw new Error("방 코드를 만들지 못했습니다.");
+        throw lastError || new Error("방 코드를 만들지 못했습니다.");
       }
 
       await connectRoom(roomCode);
@@ -498,9 +589,8 @@
       await broadcastRoomChanged();
 
       notify("방이 만들어졌습니다!");
-
     } catch (error) {
-      console.error(error);
+      console.error("방 생성 오류:", error);
       notify(error.message || "방 생성에 실패했습니다.");
       setStatus("연결 실패");
     }
@@ -542,9 +632,8 @@
       await broadcastRoomChanged();
 
       notify("방에 참가했습니다!");
-
     } catch (error) {
-      console.error(error);
+      console.error("방 참가 오류:", error);
 
       const messages = {
         ROOM_NOT_FOUND: "존재하지 않는 방입니다.",
@@ -561,7 +650,7 @@
 
       setStatus("연결 실패");
 
-      if (channel) {
+      if (channel && client) {
         await client.removeChannel(channel);
         channel = null;
       }
@@ -593,8 +682,8 @@
       await broadcastRoomChanged();
 
       notify("게임 설정을 저장했습니다.");
-
     } catch (error) {
+      console.error("설정 저장 오류:", error);
       notify(error.message || "설정 저장에 실패했습니다.");
     }
   }
@@ -617,11 +706,13 @@
         await channel.send({
           type: "broadcast",
           event: "room_changed",
-          payload: { sender: myId }
+          payload: {
+            sender: myId
+          }
         });
       }
     } catch (error) {
-      console.error(error);
+      console.error("방 나가기 오류:", error);
     }
 
     connected = false;
@@ -634,11 +725,13 @@
     roomCode = "";
     players = [];
     chatMessages = [];
+    currentRole = null;
     isHost = false;
+    gameScreenLoading = false;
 
     renderChat();
     showScreen("homeScreen");
-    setStatus("대기 중");
+    setStatus(client && myId ? "Supabase 연결됨" : "연결 확인 전");
 
     if (callServer) {
       notify("방에서 나왔습니다.");
@@ -687,7 +780,10 @@
 
     const message = $("chatInput")?.value.trim();
 
-    if (!message || !connected || !channel) return;
+    if (!message || !connected || !channel) {
+      notify("채팅 서버에 연결되어 있지 않습니다.");
+      return;
+    }
 
     if (message.length > 200) {
       notify("채팅은 200글자 이하로 입력하세요.");
@@ -698,7 +794,7 @@
 
     addChat(myName, message);
 
-    await channel.send({
+    const result = await channel.send({
       type: "broadcast",
       event: "chat",
       payload: {
@@ -707,6 +803,10 @@
         message
       }
     });
+
+    if (result === "error") {
+      notify("메시지를 전송하지 못했습니다.");
+    }
   }
 
   // =========================================
@@ -731,8 +831,8 @@
   async function startGame() {
     if (!isHost || !roomCode) return;
 
-    if (players.length < 3) {
-      notify("게임 시작에는 최소 3명이 필요합니다.");
+    if (players.length < MIN_PLAYERS) {
+      notify(`게임 시작에는 최소 ${MIN_PLAYERS}명이 필요합니다.`);
       return;
     }
 
@@ -747,21 +847,16 @@
       await showGameScreen();
 
       notify("게임이 시작되었습니다!");
-
     } catch (error) {
-      console.error(error);
+      console.error("게임 시작 오류:", error);
 
       notify(error.message || "게임을 시작하지 못했습니다.");
 
       if ($("startGameBtn")) {
-        $("startGameBtn").disabled = players.length < 3;
+        $("startGameBtn").disabled =
+          players.length < MIN_PLAYERS;
       }
     }
-  }
-
-    notify(
-      "대기실은 작동합니다. 게임 진행 및 직업 배정 기능은 다음 단계에서 연결합니다."
-    );
   }
 
   // =========================================
@@ -809,10 +904,20 @@
   );
 
   // =========================================
-  // 초기 화면
+  // 초기 화면 및 Supabase 연결 확인
   // =========================================
 
-  setStatus("대기 중");
+  setStatus("Supabase 연결 확인 중...");
   renderChat();
+
+  initialize()
+    .then(() => {
+      setStatus("Supabase 연결됨");
+      console.log("Supabase 로그인 연결 성공");
+    })
+    .catch(error => {
+      console.error("Supabase 초기 연결 실패:", error);
+      setStatus("Supabase 연결 실패");
+    });
 
 })();
