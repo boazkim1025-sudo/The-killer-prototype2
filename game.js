@@ -162,10 +162,10 @@ const SUPABASE_KEY = "sb_publishable_5bcixPexFdz1S2O1IoYsow_YjzwCq3o";
       }
 
       if (!client) {
-        client = window.supabase.createClient(
-          SUPABASE_URL,
-          SUPABASE_ANON_KEY
-        );
+       client = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
       }
 
       setStatus("Supabase 로그인 중...");
