@@ -13,7 +13,32 @@
     "sb_publishable_5bcixPexFdz1S2O1IoYsow_YjzwCq3o";
 
   const MAX_PLAYERS = 20;
+  const ROLE_INFO = {
+    citizen: { name: "시민", description: "토론과 투표로 마피아를 찾아내세요." },
+    doctor: { name: "의사", description: "시민 팀 소속 직업입니다." },
+    reporter: { name: "기자", description: "시민 팀 소속 직업입니다." },
+    police: { name: "경찰", description: "시민 팀 소속 직업입니다." },
+    detective: { name: "탐정", description: "시민 팀 소속 직업입니다." },
+    medium: { name: "영매", description: "시민 팀 소속 직업입니다." },
+    politician: { name: "정치인", description: "시민 팀 소속 직업입니다." },
+    soldier: { name: "군인", description: "시민 팀 소속 직업입니다." },
+    watcher: { name: "감시자", description: "시민 팀 소속 직업입니다." },
+    trapper: { name: "함정꾼", description: "시민 팀 소속 직업입니다." },
+    guardian: { name: "수호자", description: "시민 팀 소속 직업입니다." },
+    psychologist: { name: "심리학자", description: "시민 팀 소속 직업입니다." },
+    timeTraveler: { name: "시간여행자", description: "시민 팀 소속 직업입니다." },
+    boss: { name: "마피아 보스", description: "마피아 팀의 리더입니다." },
+    spy: { name: "스파이", description: "마피아 팀 소속 직업입니다." },
+    intimidator: { name: "협박꾼", description: "마피아 팀 소속 직업입니다." },
+    disguiser: { name: "변장가", description: "마피아 팀 소속 직업입니다." },
+    controller: { name: "조종자", description: "마피아 팀 소속 직업입니다." },
+    doppelganger: { name: "도플갱어", description: "마피아 팀 소속 직업입니다." },
+    necromancer: { name: "강령술사", description: "마피아 팀 소속 직업입니다." },
+    ghostMafia: { name: "유령 마피아", description: "마피아 팀 소속 직업입니다." }
+  };
 
+  let currentRole = null;
+  let gameScreenLoading = false;
   const $ = id => document.getElementById(id);
 
   let client = null;
@@ -262,7 +287,32 @@
   // 대기실 정보 가져오기
   // =========================================
 
-  async function refreshLobby() {
+    async function refreshLobby() {
+    if (!roomCode || !client) return;
+
+    const data = await rpc("get_mafia_lobby", {
+      p_code: roomCode
+    });
+
+    players = data.players || [];
+
+    const me = players.find(player => player.id === myId);
+
+    if (!me) {
+      notify("방에서 나갔습니다.");
+      await closeRoom(false);
+      return;
+    }
+
+    isHost = !!me.host;
+
+    if (data.status === "playing") {
+      await showGameScreen();
+      return;
+    }
+
+    renderLobby();
+  }
     if (!roomCode || !client) return;
 
     const data = await rpc("get_mafia_lobby", {
@@ -283,7 +333,60 @@
 
     renderLobby();
   }
+  async function showGameScreen() {
+    if (!roomCode || gameScreenLoading) return;
 
+    gameScreenLoading = true;
+
+    try {
+      const data = await rpc("get_my_mafia_role", {
+        p_code: roomCode
+      });
+
+      currentRole = data;
+
+      const info = ROLE_INFO[data.role_id] || {
+        name: data.role_id,
+        description: "직업 정보"
+      };
+
+      $("roundLabel").textContent = `제 ${data.round}일차`;
+      $("phaseLabel").textContent =
+        data.phase === "night" ? "밤" : data.phase;
+
+      $("gameTitle").textContent = "게임이 시작되었습니다";
+      $("gameMessage").textContent = "당신의 직업을 확인하세요.";
+
+      $("myRole").textContent = info.name;
+
+      $("myRoleDescription").textContent =
+        `팀: ${data.team === "mafia" ? "마피아" : "시민"} · ${info.description}`;
+
+      $("aliveCount").textContent = players.length;
+
+      if ($("gamePlayerList")) {
+        $("gamePlayerList").innerHTML = players.map((p, i) => `
+          <div class="player-item">
+            <span>${i + 1}. ${escapeHTML(p.name)}</span>
+          </div>
+        `).join("");
+      }
+
+      if ($("actionArea")) {
+        $("actionArea").innerHTML =
+          '<p class="notice">직업별 능력은 다음 단계에서 구현됩니다.</p>';
+      }
+
+      showScreen("gameScreen");
+
+    } catch (error) {
+      console.error(error);
+      notify(error.message || "직업 정보를 불러오지 못했습니다.");
+
+    } finally {
+      gameScreenLoading = false;
+    }
+  }
   // =========================================
   // 대기실 화면
   // =========================================
@@ -626,7 +729,35 @@
   // =========================================
 
   async function startGame() {
-    if (!isHost) return;
+    if (!isHost || !roomCode) return;
+
+    if (players.length < 3) {
+      notify("게임 시작에는 최소 3명이 필요합니다.");
+      return;
+    }
+
+    try {
+      $("startGameBtn").disabled = true;
+
+      await rpc("start_mafia_game", {
+        p_code: roomCode
+      });
+
+      await broadcastRoomChanged();
+      await showGameScreen();
+
+      notify("게임이 시작되었습니다!");
+
+    } catch (error) {
+      console.error(error);
+
+      notify(error.message || "게임을 시작하지 못했습니다.");
+
+      if ($("startGameBtn")) {
+        $("startGameBtn").disabled = players.length < 3;
+      }
+    }
+  }
 
     notify(
       "대기실은 작동합니다. 게임 진행 및 직업 배정 기능은 다음 단계에서 연결합니다."
@@ -685,29 +816,3 @@
   renderChat();
 
 })();
-  const ROLE_INFO = {
-    citizen: { name: "시민", description: "토론과 투표로 마피아를 찾아내세요." },
-    doctor: { name: "의사", description: "시민 팀 소속 직업입니다." },
-    reporter: { name: "기자", description: "시민 팀 소속 직업입니다." },
-    police: { name: "경찰", description: "시민 팀 소속 직업입니다." },
-    detective: { name: "탐정", description: "시민 팀 소속 직업입니다." },
-    medium: { name: "영매", description: "시민 팀 소속 직업입니다." },
-    politician: { name: "정치인", description: "시민 팀 소속 직업입니다." },
-    soldier: { name: "군인", description: "시민 팀 소속 직업입니다." },
-    watcher: { name: "감시자", description: "시민 팀 소속 직업입니다." },
-    trapper: { name: "함정꾼", description: "시민 팀 소속 직업입니다." },
-    guardian: { name: "수호자", description: "시민 팀 소속 직업입니다." },
-    psychologist: { name: "심리학자", description: "시민 팀 소속 직업입니다." },
-    timeTraveler: { name: "시간여행자", description: "시민 팀 소속 직업입니다." },
-    boss: { name: "마피아 보스", description: "마피아 팀의 리더입니다." },
-    spy: { name: "스파이", description: "마피아 팀 소속 직업입니다." },
-    intimidator: { name: "협박꾼", description: "마피아 팀 소속 직업입니다." },
-    disguiser: { name: "변장가", description: "마피아 팀 소속 직업입니다." },
-    controller: { name: "조종자", description: "마피아 팀 소속 직업입니다." },
-    doppelganger: { name: "도플갱어", description: "마피아 팀 소속 직업입니다." },
-    necromancer: { name: "강령술사", description: "마피아 팀 소속 직업입니다." },
-    ghostMafia: { name: "유령 마피아", description: "마피아 팀 소속 직업입니다." }
-  };
-
-  let currentRole = null;
-  let gameScreenLoading = false;
