@@ -6,11 +6,9 @@
   // SUPABASE 설정
   // =========================================
 
-  const SUPABASE_URL =
-    "https://vkhfrxnwdvocgrvzpuhr.supabase.co";
+const SUPABASE_URL = "https://vkhfrxnwdvocgrvzpuhr.supabase.co";
 
-  const SUPABASE_ANON_KEY =
-    "sb_publishable_5bcixPexFdz1S2O1IoYsow_YjzwCq3o";
+const SUPABASE_KEY = "sb_publishable_5bcixPexFdz1S2O1IoYsow_YjzwCq3o";
 
   const MAX_PLAYERS = 20;
   const MIN_PLAYERS = 5;
