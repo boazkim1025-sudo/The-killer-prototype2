@@ -418,8 +418,15 @@ const SUPABASE_KEY = "sb_publishable_5bcixPexFdz1S2O1IoYsow_YjzwCq3o";
 
       $("roundLabel").textContent = `제 ${data.round}일차`;
 
-      $("phaseLabel").textContent =
-        data.phase === "night" ? "밤" : data.phase;
+const phaseNames = {
+  night: "밤 🌙",
+  morning: "아침 🌅",
+  day: "낮 ☀️",
+  voting: "투표 🗳️"
+};
+
+$("phaseLabel").textContent =
+  phaseNames[data.phase] || data.phase;
 
       $("gameTitle").textContent = "게임이 시작되었습니다";
       $("gameMessage").textContent = "당신의 직업을 확인하세요.";
@@ -445,9 +452,9 @@ const SUPABASE_KEY = "sb_publishable_5bcixPexFdz1S2O1IoYsow_YjzwCq3o";
           '<p class="notice">직업별 능력과 낮·밤 진행은 다음 단계에서 연결됩니다.</p>';
       }
 
-      if ($("hostGameControls")) {
-        $("hostGameControls").classList.add("hidden");
-      }
+if ($("hostGameControls")) {
+  $("hostGameControls").classList.toggle("hidden", !isHost);
+}
 
       showScreen("gameScreen");
       setStatus("게임 진행 중");
@@ -821,7 +828,44 @@ const SUPABASE_KEY = "sb_publishable_5bcixPexFdz1S2O1IoYsow_YjzwCq3o";
       notify("방 코드: " + roomCode);
     }
   }
+// =========================================
+// 밤·낮 단계 전환
+// =========================================
 
+async function advancePhase() {
+  if (!isHost || !roomCode) return;
+
+  const button = $("nextPhaseBtn");
+
+  if (button) button.disabled = true;
+
+  try {
+    const result = await rpc("advance_mafia_phase", {
+      p_code: roomCode
+    });
+
+    await broadcastRoomChanged();
+    await showGameScreen();
+
+    const phaseNames = {
+      night: "밤",
+      morning: "아침",
+      day: "낮",
+      voting: "투표"
+    };
+
+    notify(
+      `${result.round}일차 ${phaseNames[result.phase]} 단계로 변경되었습니다.`
+    );
+
+  } catch (error) {
+    console.error("단계 전환 오류:", error);
+    notify(error.message || "단계 전환에 실패했습니다.");
+
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
   // =========================================
   // 게임 시작
   // =========================================
@@ -880,7 +924,10 @@ const SUPABASE_KEY = "sb_publishable_5bcixPexFdz1S2O1IoYsow_YjzwCq3o";
     "click",
     startGame
   );
-
+$("nextPhaseBtn")?.addEventListener(
+  "click",
+  advancePhase
+);
   $("leaveRoomBtn")?.addEventListener(
     "click",
     () => closeRoom(true)
