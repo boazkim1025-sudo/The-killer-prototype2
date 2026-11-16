@@ -685,3 +685,29 @@
   renderChat();
 
 })();
+  const ROLE_INFO = {
+    citizen: { name: "시민", description: "토론과 투표로 마피아를 찾아내세요." },
+    doctor: { name: "의사", description: "시민 팀 소속 직업입니다." },
+    reporter: { name: "기자", description: "시민 팀 소속 직업입니다." },
+    police: { name: "경찰", description: "시민 팀 소속 직업입니다." },
+    detective: { name: "탐정", description: "시민 팀 소속 직업입니다." },
+    medium: { name: "영매", description: "시민 팀 소속 직업입니다." },
+    politician: { name: "정치인", description: "시민 팀 소속 직업입니다." },
+    soldier: { name: "군인", description: "시민 팀 소속 직업입니다." },
+    watcher: { name: "감시자", description: "시민 팀 소속 직업입니다." },
+    trapper: { name: "함정꾼", description: "시민 팀 소속 직업입니다." },
+    guardian: { name: "수호자", description: "시민 팀 소속 직업입니다." },
+    psychologist: { name: "심리학자", description: "시민 팀 소속 직업입니다." },
+    timeTraveler: { name: "시간여행자", description: "시민 팀 소속 직업입니다." },
+    boss: { name: "마피아 보스", description: "마피아 팀의 리더입니다." },
+    spy: { name: "스파이", description: "마피아 팀 소속 직업입니다." },
+    intimidator: { name: "협박꾼", description: "마피아 팀 소속 직업입니다." },
+    disguiser: { name: "변장가", description: "마피아 팀 소속 직업입니다." },
+    controller: { name: "조종자", description: "마피아 팀 소속 직업입니다." },
+    doppelganger: { name: "도플갱어", description: "마피아 팀 소속 직업입니다." },
+    necromancer: { name: "강령술사", description: "마피아 팀 소속 직업입니다." },
+    ghostMafia: { name: "유령 마피아", description: "마피아 팀 소속 직업입니다." }
+  };
+
+  let currentRole = null;
+  let gameScreenLoading = false;
